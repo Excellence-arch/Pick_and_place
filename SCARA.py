@@ -1,109 +1,74 @@
 from machine import PWM, Pin
 from time import sleep
 
-mouthPin = machine.Pin(0)
-neck1Pin = machine.Pin(1)
-neck2Pin = machine.Pin(2)
-elbowPin = machine.Pin(3)
-shoulderPin = machine.Pin(4)
-basePin = machine.Pin(5)
+# === Servo Setup ===
+def setup_servo(pin_num):
+    pwm = PWM(Pin(pin_num))
+    pwm.freq(50)
+    return pwm
 
-mouth = PWM(mouthPin)
-neck1 = PWM(neck1Pin)
-neck2 = PWM(neck2Pin)
-elbow = PWM(elbowPin)
-shoulder = PWM(shoulderPin)
-base = PWM(basePin)
+# Create servo objects
+mouthServo = setup_servo(0)
+neck1Servo = setup_servo(1)
+neck2Servo = setup_servo(2)
+elbowServo = setup_servo(3)
+shoulderServo = setup_servo(4)
+baseServo = setup_servo(5)
 
-# Set Duty Cycle for Different Angles
-max_duty = 8064
-maxx_duty = 3000
-min_duty = 1702
-half_duty = int(max_duty / 2)
-halff_duty = int(maxx_duty / 2)
+# === Servo Duty Range (you can tweak these) ===
+SERVO_MIN = 2000   # ~0°
+SERVO_MAX = 8000   # ~180°
+SERVO_MID = (SERVO_MIN + SERVO_MAX) // 2
 
-# Set PWM frequency
-frequency = 50
-mouth.freq(frequency)
-neck1.freq(frequency)
-neck2.freq(frequency)
-elbow.freq(frequency)
-shoulder.freq(frequency)
-base.freq(frequency)
-
-
-def move_smoothly(pin, start_duty, end_duty, step=100, delay=0.05):
-    """Move smoothly from start_duty to end_duty."""
-    if start_duty < end_duty:
-        for duty in range(start_duty, end_duty, step):
-            pin.duty_u16(duty)
+# === Smooth Movement ===
+def move_smoothly(servo, start, end, step=100, delay=0.02):
+    if start < end:
+        for duty in range(start, end, step):
+            servo.duty_u16(duty)
             sleep(delay)
     else:
-        for duty in range(start_duty, end_duty, -step):
-            pin.duty_u16(duty)
+        for duty in range(start, end, -step):
+            servo.duty_u16(duty)
             sleep(delay)
-            
-#move_smoothly(shoulder, min_duty, maxx_duty)
-#sleep(2)
+    servo.duty_u16(end)  # Ensure final position
 
+# === Main Sequence ===
+def pick_and_place():
+    print("Rotating to object...")
+    move_smoothly(baseServo, SERVO_MID, SERVO_MIN)  # Rotate to object
+    sleep(1)
+
+    print("Lowering arm...")
+    move_smoothly(shoulderServo, SERVO_MIN, SERVO_MID)
+    move_smoothly(elbowServo, SERVO_MAX, SERVO_MIN)
+    sleep(1)
+
+    print("Opening mouth...")
+    move_smoothly(mouthServo, SERVO_MIN, SERVO_MAX)
+    sleep(0.5)
+
+    print("Closing mouth to grab...")
+    move_smoothly(mouthServo, SERVO_MAX, SERVO_MIN)
+    sleep(0.5)
+
+    print("Lifting object...")
+    move_smoothly(elbowServo, SERVO_MIN, SERVO_MAX)
+    sleep(1)
+
+    print("Rotating to drop location...")
+    move_smoothly(baseServo, SERVO_MIN, SERVO_MAX)
+    sleep(1)
+
+    print("Dropping object...")
+    move_smoothly(mouthServo, SERVO_MIN, SERVO_MAX)
+    sleep(0.5)
+
+    print("Resetting arm...")
+    move_smoothly(shoulderServo, SERVO_MID, SERVO_MIN)
+    move_smoothly(baseServo, SERVO_MAX, SERVO_MID)
+    move_smoothly(mouthServo, SERVO_MAX, SERVO_MIN)
+
+# === Loop ===
 while True:
-    #Move to where the object is
-    move_smoothly(base, min_duty, max_duty)
-    sleep(2)
-    '''move_smoothly(shoulder, min_duty, maxx_duty)
-    sleep(2)'''
-    #open the mouth to pick the object
-    move_smoothly(mouth, min_duty, half_duty)
-    sleep(2)
-    #bring the elbow down to the height of the object
-    move_smoothly(elbow, maxx_duty, min_duty)
-    sleep(2)
-    #Close the mouth to pick the object
-    move_smoothly(mouth, half_duty, min_duty)
-    sleep(2)
-    #Raise the elbow back to carry the object
-    move_smoothly(elbow, min_duty, maxx_duty)
-    sleep(2)
-    '''move_smoothly(shoulder, half_duty, min_duty)
-    sleep(2)'''
-    #Rotate to where to drop the object
-    move_smoothly(base, max_duty, min_duty)
-    sleep(2)
-    #open the mouth to drop the object
-    move_smoothly(mouth, min_duty, half_duty)
-    sleep(2)
-    #Close the mouth to after picking the object
-    move_smoothly(mouth, half_duty, min_duty)
-    sleep(2)
-    
-    
-    """ move_smoothly(mouth, min_duty, maxx_duty)
-    sleep(2)
-    move_smoothly(mouth, maxx_duty, min_duty)
-    sleep(2)
-    
-    move_smoothly(neck1, maxx_duty, min_duty)
-    sleep(2)
-    move_smoothly(neck1, min_duty, maxx_duty)
-    sleep(2)
-    
-    move_smoothly(neck2, max_duty, min_duty)
-    sleep(2)
-    move_smoothly(neck2, min_duty, max_duty)
-    sleep(2)
-    
-    move_smoothly(elbow, maxx_duty, min_duty)
-    sleep(2)
-    move_smoothly(elbow, min_duty, maxx_duty)
-    sleep(2)
-    
-    move_smoothly(shoulder, min_duty, halff_duty)
-    sleep(2)
-    move_smoothly(shoulder, halff_duty, min_duty)
-    sleep(2)
-    
-    move_smoothly(base, min_duty, half_duty)
-    sleep(2)
-    move_smoothly(base, half_duty, min_duty)
-    sleep(2) """
-
+    pick_and_place()
+    sleep(5)  # Wait before repeating
